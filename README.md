@@ -1,7 +1,7 @@
 # Super Mario 64 Mobile
 - also known as sm64mobile
 
-A high-performance mobile port of the Super Mario 64 decompilation, optimized for Android and iOS (M1/A-series) devices. This port leverages **SDL2** for input handling and is the whole game from going into peaches castle to literally the credits.
+A high-performance mobile port of the Super Mario 64 decompilation, optimized for Android and iOS (M1/A-series) devices. This port leverages **SDL2** for input handling and provides the **complete game experience**, from entering Peach's Castle all the way to the final credits.
 
 ## Features
 - **Native ARM64 Support:** Optimized for modern mobile processors, including the Apple M1.
@@ -20,13 +20,16 @@ To build this project, you will need the following dependencies:
 
 ### Android / Linux
 - **Build Essentials:** `sudo apt install build-essential pkg-config`
-- **Android NDK:** Latest version configured in your environment.
+- **Android NDK:** Latest version configured in your environment (ensure `$ANDROID_NDK_LATEST_HOME` is set).
 - **MIPS Binutils:** `sudo apt install binutils-mips-linux-gnu`
 - **SDL2:** `sudo apt install libsdl2-dev`
 
 ## Building
 A valid Super Mario 64 ROM (US version) is required to extract assets. Place your ROM in the root directory and rename it to `baserom.us.z64`.
 
-### Build for iOS
+### Build for Android
+1. **Prepare the environment:** Ensure you have the Android NDK and MIPS binutils installed.
+2. **Asset Extraction:** The Makefile will automatically use the MIPS tools to extract game assets from your ROM.
+3. **Compile:** Run the following command:
 ```bash
-make TARGET_IOS=1 ARCH=arm64 CROSS_COMPILE=mips64-elf- HAVE_SDL2=1 -j$(sysctl -n hw.ncpu)
+make TARGET_ANDROID=1 ARCH=arm64 CROSS_COMPILE=mips-linux-gnu- HAVE_SDL2=1 -j$(nproc)
