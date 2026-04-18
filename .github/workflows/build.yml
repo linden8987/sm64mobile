@@ -1,0 +1,79 @@
+name: Build sm64mobile
+
+on:
+  push:
+    branches: [ "main", "trunk" ]
+  workflow_dispatch:
+
+jobs:
+  build-mobile:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [android, ios]
+    runs-on: ${{ (matrix.platform == 'ios') && 'macos-latest' || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout sm64mobile
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        run: |
+          if [ "${{ matrix.platform }}" == "android" ]; then
+            sudo apt-get update
+            sudo apt-get install -y build-essential pkg-config libusb-1.0-0-dev libsdl2-dev python3 wget zip mips-linux-gnu-binutils
+          else
+            brew install sdl2 pkg-config mips-binutils
+          fi
+
+      - name: Build for Android
+        if: matrix.platform == 'android'
+        run: |
+          # Use the provided Makefile logic (0.2% of your repo)
+          # Ensure your baserom.us.z64 is present if assets need to be extracted
+          make TARGET_ANDROID=1 ARCH=arm64 -j$(nproc)
+          
+      - name: Build for iOS
+        if: matrix.platform == 'ios'
+        run: |
+          # Targeting the Apple M1/A-series hardware detected in your logs
+          # Enabling Metal support if your C-port has the hooks
+          make TARGET_IOS=1 ARCH=arm64 -j$(sysctl -n hw.ncpu)
+
+      - name: Stage Production Artifacts
+        run: |
+          mkdir -p staged_output
+          # Collect the compiled C binaries, APKs, or IPAs
+          find build/ -type f \( -name "*.apk" -o -name "*.ipa" -o -name "sm64*" \) -exec cp {} staged_output/ \;
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sm64-${{ matrix.platform }}
+          path: staged_output/
+
+  publish-release:
+    needs: build-mobile
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sm64-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Create sm64mobile Release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "production"
+          prerelease: false
+          title: "sm64mobile"
+          # Only include the final binaries, no .c or .h files
+          files: |
+            release-assets/*
