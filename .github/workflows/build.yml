@@ -19,33 +19,35 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Install Dependencies
+      - name: Install Dependencies (Android/Linux)
+        if: matrix.platform == 'android'
         run: |
-          if [ "${{ matrix.platform }}" == "android" ]; then
-            sudo apt-get update
-            sudo apt-get install -y build-essential pkg-config libusb-1.0-0-dev libsdl2-dev python3 wget zip mips-linux-gnu-binutils
-          else
-            brew install sdl2 pkg-config mips-binutils
-          fi
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libusb-1.0-0-dev libsdl2-dev python3 wget zip binutils-mips-linux-gnu
+
+      - name: Install Dependencies (iOS/macOS)
+        if: matrix.platform == 'ios'
+        run: |
+          # The fix: Tap into n64tools to get the correct MIPS binutils
+          brew tap n64tools/n64tools
+          brew install mips64-elf-binutils sdl2 pkg-config python@3.11
 
       - name: Build for Android
         if: matrix.platform == 'android'
         run: |
-          # Use the provided Makefile logic (0.2% of your repo)
-          # Ensure your baserom.us.z64 is present if assets need to be extracted
-          make TARGET_ANDROID=1 ARCH=arm64 -j$(nproc)
+          # Ensuring arm64 targets for modern hardware
+          make TARGET_ANDROID=1 ARCH=arm64 CROSS_COMPILE=mips-linux-gnu- -j$(nproc)
           
       - name: Build for iOS
         if: matrix.platform == 'ios'
         run: |
-          # Targeting the Apple M1/A-series hardware detected in your logs
-          # Enabling Metal support if your C-port has the hooks
-          make TARGET_IOS=1 ARCH=arm64 -j$(sysctl -n hw.ncpu)
+          # Targeting the M1 architecture detected in your logs
+          make TARGET_IOS=1 ARCH=arm64 CROSS_COMPILE=mips64-elf- -j$(sysctl -n hw.ncpu)
 
       - name: Stage Production Artifacts
         run: |
           mkdir -p staged_output
-          # Collect the compiled C binaries, APKs, or IPAs
+          # Collecting binaries while ignoring source code
           find build/ -type f \( -name "*.apk" -o -name "*.ipa" -o -name "sm64*" \) -exec cp {} staged_output/ \;
 
       - name: Upload Artifacts
@@ -74,6 +76,5 @@ jobs:
           automatic_release_tag: "production"
           prerelease: false
           title: "sm64mobile"
-          # Only include the final binaries, no .c or .h files
           files: |
             release-assets/*
